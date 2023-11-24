@@ -4,7 +4,10 @@ require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true,
+}));
 app.use(express.json());
 
 
@@ -28,16 +31,31 @@ async function run() {
         const districtCollection = client.db('lifeFlowDB').collection('districts')
         const upazilaCollection = client.db('lifeFlowDB').collection('upazilas')
 
-        // GET all districts api
+        // GET districts related api
         app.get('/districts', async (req, res) => {
             const result = await districtCollection.find().toArray();
             res.send(result);
         });
 
+        // GET upazilas related api
         app.get('/upazilas', async (req, res) => {
             const result = await upazilaCollection.find().toArray();
             res.send(result)
+        });
+
+        app.get('/upazilas/:name', async (req, res) => {
+            const name = req.params.name;
+            const district = await districtCollection.findOne({ name })
+
+            let query = {}
+            if (district) {
+                query = { district_id: district.district_id }
+            }
+
+            const result = await upazilaCollection.find(query).toArray();
+            res.send(result);
         })
+
 
 
         // Send a ping to confirm a successful connection
