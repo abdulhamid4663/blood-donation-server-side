@@ -30,14 +30,16 @@ async function run() {
 
         const districtCollection = client.db('lifeFlowDB').collection('districts')
         const upazilaCollection = client.db('lifeFlowDB').collection('upazilas')
+        const userCollection = client.db('lifeFlowDB').collection('users')
 
-        // GET districts related api
+
+        // districts related api
         app.get('/districts', async (req, res) => {
             const result = await districtCollection.find().toArray();
             res.send(result);
         });
 
-        // GET upazilas related api
+        // upazilas related api
         app.get('/upazilas', async (req, res) => {
             const result = await upazilaCollection.find().toArray();
             res.send(result)
@@ -53,6 +55,36 @@ async function run() {
             }
 
             const result = await upazilaCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        // Users related api
+        app.get('/users', async (req, res) => {
+            const result = await userCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.put('/users/:email', async (req, res) => {
+            const email = req.params.email
+            const user = req.body;
+            const query = { email: email }
+            const options = { upsert: true }
+            // checking the user if exist or not
+            const isExist = await userCollection.findOne(query);
+            console.log("Found User is ----->", isExist);
+
+            if (isExist) {
+                return res.send(isExist)
+            }
+
+            // updating documents
+            const updateDoc = {
+                $set: {
+                    ...user
+                }
+            }
+
+            const result = await userCollection.updateOne(query, updateDoc, options)
             res.send(result);
         })
 
