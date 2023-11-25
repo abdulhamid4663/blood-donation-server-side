@@ -51,18 +51,13 @@ async function run() {
 
         app.get('/logout', async (req, res) => {
             try {
-              res
-                .clearCookie('token', {
-                  maxAge: 0,
-                  secure: process.env.NODE_ENV === 'production',
-                  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-                })
-                .send({ success: true })
-              console.log('Logout successful')
+                res
+                    .clearCookie('token', { maxAge: 0 })
+                    .send({ success: true })
             } catch (err) {
-              res.status(500).send(err)
+                res.status(500).send(err)
             }
-          })
+        })
 
         // districts related api
         app.get('/districts', async (req, res) => {
@@ -94,6 +89,13 @@ async function run() {
             const result = await userCollection.find().toArray();
             res.send(result);
         })
+
+        // GET role of users
+        app.get('/users/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await userCollection.findOne({ email });
+            res.send(result);
+          })
 
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email
