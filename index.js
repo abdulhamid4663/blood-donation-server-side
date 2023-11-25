@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -9,7 +11,7 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json());
-
+app.use(cookieParser());
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xgaxesu.mongodb.net/?retryWrites=true&w=majority`;
@@ -32,6 +34,35 @@ async function run() {
         const upazilaCollection = client.db('lifeFlowDB').collection('upazilas')
         const userCollection = client.db('lifeFlowDB').collection('users')
 
+
+        // auth related api
+        app.post("/jwt", async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.TOKEN_ACCESS_SECRET, { expiresIn: "365d" });
+            console.log(token);
+            res
+                .cookie("token", token, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'none',
+                })
+                .send({ success: true });
+        });
+
+        app.get('/logout', async (req, res) => {
+            try {
+              res
+                .clearCookie('token', {
+                  maxAge: 0,
+                  secure: process.env.NODE_ENV === 'production',
+                  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+                })
+                .send({ success: true })
+              console.log('Logout successful')
+            } catch (err) {
+              res.status(500).send(err)
+            }
+          })
 
         // districts related api
         app.get('/districts', async (req, res) => {
