@@ -30,9 +30,10 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
 
-        const districtCollection = client.db('lifeFlowDB').collection('districts')
-        const upazilaCollection = client.db('lifeFlowDB').collection('upazilas')
-        const userCollection = client.db('lifeFlowDB').collection('users')
+        const districtCollection = client.db('lifeFlowDB').collection('districts');
+        const upazilaCollection = client.db('lifeFlowDB').collection('upazilas');
+        const userCollection = client.db('lifeFlowDB').collection('users');
+        const requestCollection = client.db('lifeFlowDB').collection('requests');
 
 
         // auth related api
@@ -95,7 +96,7 @@ async function run() {
             const email = req.params.email;
             const result = await userCollection.findOne({ email });
             res.send(result);
-          })
+        })
 
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email
@@ -121,6 +122,24 @@ async function run() {
             res.send(result);
         })
 
+        // request related api
+        app.get('/requests', async (req, res) => {
+            const result = await requestCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.get('/requests/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const result = await requestCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/requests', async (req, res) => {
+            const request = req.body;
+            const result = await requestCollection.insertOne(request);
+            res.send(result);
+        })
 
 
         // Send a ping to confirm a successful connection
