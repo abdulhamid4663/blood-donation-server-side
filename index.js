@@ -13,7 +13,7 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xgaxesu.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -40,7 +40,6 @@ async function run() {
         app.post("/jwt", async (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.TOKEN_ACCESS_SECRET, { expiresIn: "365d" });
-            console.log(token);
             res
                 .cookie("token", token, {
                     httpOnly: true,
@@ -135,10 +134,30 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/request/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await requestCollection.findOne(query)
+            res.send(result)
+        })
+
         app.post('/requests', async (req, res) => {
             const request = req.body;
             const result = await requestCollection.insertOne(request);
             res.send(result);
+        })
+
+        app.patch('/requests/:id', async (req, res) => {
+            const request = req.body;
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    ...request
+                }
+            }
+            const result = await requestCollection.updateOne(filter, updatedDoc)
+            res.send(result)
         })
 
 
