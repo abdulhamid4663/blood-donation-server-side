@@ -195,6 +195,15 @@ async function run() {
         app.get('/requests/:email', async (req, res) => {
             const email = req.params.email;
             const query = { email: email };
+
+            const user = await userCollection.findOne(query);
+
+            console.log(user);
+            if(user?.role === 'admin') {
+                const requests = await requestCollection.find().toArray();
+                return res.send(requests);
+            }
+
             const result = await requestCollection.find(query).toArray();
             res.send(result);
         })
