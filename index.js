@@ -25,6 +25,21 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: "unAuthorized Access", status: 401 })
+    };
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: "unAuthorized Access", status: 401 });
+        }
+
+        req.decoded = decoded;
+        next();
+    });
+}
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -86,7 +101,17 @@ async function run() {
 
         // Users related api
         app.get('/users', async (req, res) => {
-            const result = await userCollection.find().toArray();
+            let query = {};
+
+            if (req.query.sort === 'blocked' || req.query.sort === 'active') {
+                query.status = req.query.sort;
+            }
+
+            if(req.query.sort === 'all') {
+                query = {}
+            }
+
+            const result = await userCollection.find(query).toArray();
             res.send(result);
         })
 
@@ -119,6 +144,46 @@ async function run() {
 
             const result = await userCollection.updateOne(query, updateDoc, options)
             res.send(result);
+        })
+
+        app.patch("/blockUser/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    status: "blocked"
+                }
+            }
+
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result)
+        })
+
+        app.patch("/activeUser/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    status: "active"
+                }
+            }
+
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result)
+        })
+
+        app.patch("/changeRole/:id", async (req, res) => {
+            const id = req.params.id;
+            const userRole = req.body;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    role: userRole?.role
+                }
+            }
+
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result)
         })
 
         // request related api
