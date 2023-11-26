@@ -49,6 +49,7 @@ async function run() {
         const upazilaCollection = client.db('lifeFlowDB').collection('upazilas');
         const userCollection = client.db('lifeFlowDB').collection('users');
         const requestCollection = client.db('lifeFlowDB').collection('requests');
+        const blogCollection = client.db('lifeFlowDB').collection('blogs');
 
 
         // auth related api
@@ -107,7 +108,7 @@ async function run() {
                 query.status = req.query.sort;
             }
 
-            if(req.query.sort === 'all') {
+            if (req.query.sort === 'all') {
                 query = {}
             }
 
@@ -198,8 +199,7 @@ async function run() {
 
             const user = await userCollection.findOne(query);
 
-            console.log(user);
-            if(user?.role === 'admin') {
+            if (user?.role === 'admin') {
                 const requests = await requestCollection.find().toArray();
                 return res.send(requests);
             }
@@ -234,6 +234,64 @@ async function run() {
             res.send(result)
         })
 
+        // Blog related apis
+        app.get('/blogs', async (req, res) => {
+            let query = {}
+
+            if (req.query.sort) {
+                query.status = req.query.sort
+            }
+
+            if (req.query.sort === "all") {
+                query = {}
+            }
+
+            const result = await blogCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/blogs', async (req, res) => {
+            const blog = req.body;
+            const result = await blogCollection.insertOne(blog);
+            res.send(result);
+        })
+
+        app.patch('/blogs/:id', async (req, res) => {
+            const id = req.params.id;
+            const updateStatus = req.body;
+            const filter = { _id: new ObjectId(id) };
+            const date = new Date();
+            const month = date.toLocaleString('default', { month: 'short' })
+            const day = date.getDate();
+
+            if (updateStatus.status === 'published') {
+                const updatedDoc = {
+                    $set: {
+                        status: updateStatus.status,
+                        published_date: `${month}/${day}`
+                    }
+                }
+                const result = await blogCollection.updateOne(filter, updatedDoc);
+                return res.send(result);
+            } else {
+                const updatedDoc = {
+                    $set: {
+                        status: updateStatus.status
+                    }
+                }
+                const result = await blogCollection.updateOne(filter, updatedDoc);
+                res.send(result);
+            }
+        })
+
+        app.delete(`/blogs/:id`, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await blogCollection.deleteOne(query);
+            res.send(result);
+        })
+
+
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
@@ -244,9 +302,6 @@ async function run() {
     }
 }
 run().catch(console.dir);
-
-
-
 
 app.get('/', (req, res) => {
     res.send('Blood is flowing.')
