@@ -55,7 +55,7 @@ async function run() {
         // auth related api
         app.post("/jwt", async (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.TOKEN_ACCESS_SECRET, { expiresIn: "365d" });
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "24h" });
             res
                 .cookie("token", token, {
                     httpOnly: true,
@@ -101,7 +101,7 @@ async function run() {
         })
 
         // Users related api
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             let query = {};
 
             if (req.query.sort === 'blocked' || req.query.sort === 'active') {
@@ -117,21 +117,21 @@ async function run() {
         })
 
         // GET role of users
-        app.get('/users/:email', async (req, res) => {
+        app.get('/users/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const result = await userCollection.findOne({ email });
             res.send(result);
         })
 
         // GET user status api
-        app.get('/userStatus/:email', async (req, res) => {
+        app.get('/userStatus/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const result = await userCollection.findOne(query);
             res.send(result)
         })
 
-        app.put('/users/:email', async (req, res) => {
+        app.put('/users/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const user = req.body;
             const query = { email: email }
@@ -155,7 +155,7 @@ async function run() {
             res.send(result);
         })
 
-        app.patch("/blockUser/:id", async (req, res) => {
+        app.patch("/blockUser/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -168,7 +168,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch("/activeUser/:id", async (req, res) => {
+        app.patch("/activeUser/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -181,7 +181,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch("/changeRole/:id", async (req, res) => {
+        app.patch("/changeRole/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const userRole = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -201,7 +201,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/requests/:email', async (req, res) => {
+        app.get('/requests/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             const query = { email: email };
 
@@ -210,7 +210,7 @@ async function run() {
             if (user?.role === 'admin' || user?.role === 'volunteer') {
                 const dataPerPage = 10;
                 const page = req.query.page;
-                console.log(page);
+
                 const requests = await requestCollection
                     .find()
                     .skip(page * dataPerPage)
@@ -231,13 +231,25 @@ async function run() {
             res.send(result)
         })
 
-        app.post('/requests', async (req, res) => {
+        // GET all pending requests
+        app.get('/pendingRequests', verifyToken, async (req, res) => {
+            let query = {};
+            if (req.query.pending) {
+                query = {
+                    status: req.query.pending
+                }
+            }
+            const result = await requestCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/requests', verifyToken, async (req, res) => {
             const request = req.body;
             const result = await requestCollection.insertOne(request);
             res.send(result);
         })
 
-        app.patch('/requests/:id', async (req, res) => {
+        app.patch('/requests/:id', verifyToken, async (req, res) => {
             const request = req.body;
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -250,7 +262,21 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/requests/:id', async (req, res) => {
+        // Change a request status from pending to inprogress
+        app.patch('/requestStatusChange/:id', verifyToken, async (req, res) => {
+            const request = req.body;
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    status: request.status
+                }
+            }
+            const result = await requestCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+        })
+
+        app.delete('/requests/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await requestCollection.deleteOne(query);
@@ -264,7 +290,7 @@ async function run() {
         })
 
         // Blog related apis
-        app.get('/blogs', async (req, res) => {
+        app.get('/blogs', verifyToken, async (req, res) => {
             let query = {}
 
             if (req.query.sort) {
@@ -284,20 +310,23 @@ async function run() {
             }
 
             if (req.query.search) {
-                query.title = { $regex: new RegExp(req.query.search, "i") }
+                query.$or = [
+                    { title: { $regex: new RegExp(req.query.search, "i") } },
+                    { name: { $regex: new RegExp(req.query.search, "i") } }
+                ];
             }
 
             const result = await blogCollection.find(query).toArray();
             res.send(result);
         })
 
-        app.post('/blogs', async (req, res) => {
+        app.post('/blogs', verifyToken, async (req, res) => {
             const blog = req.body;
             const result = await blogCollection.insertOne(blog);
             res.send(result);
         })
 
-        app.patch('/blogs/:id', async (req, res) => {
+        app.patch('/blogs/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updateStatus = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -325,7 +354,7 @@ async function run() {
             }
         })
 
-        app.delete(`/blogs/:id`, async (req, res) => {
+        app.delete(`/blogs/:id`, verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await blogCollection.deleteOne(query);
