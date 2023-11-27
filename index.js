@@ -207,8 +207,16 @@ async function run() {
 
             const user = await userCollection.findOne(query);
 
-            if (user?.role === 'admin') {
-                const requests = await requestCollection.find().toArray();
+            if (user?.role === 'admin' || user?.role === 'volunteer') {
+                const dataPerPage = 10;
+                const page = req.query.page;
+                console.log(page);
+                const requests = await requestCollection
+                    .find()
+                    .skip(page * dataPerPage)
+                    .limit(dataPerPage)
+                    .toArray()
+
                 return res.send(requests);
             }
 
@@ -241,7 +249,7 @@ async function run() {
             const result = await requestCollection.updateOne(filter, updatedDoc)
             res.send(result)
         })
-        
+
         app.delete('/requests/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
@@ -249,16 +257,34 @@ async function run() {
             res.send(result);
         })
 
+        // GET requests count api
+        app.get('/requestsCount', async (req, res) => {
+            const count = await requestCollection.estimatedDocumentCount();
+            res.send({ count })
+        })
+
         // Blog related apis
         app.get('/blogs', async (req, res) => {
             let query = {}
 
             if (req.query.sort) {
-                query.status = req.query.sort
+                query = {
+                    status: req.query.sort
+                }
             }
 
             if (req.query.sort === "all") {
                 query = {}
+            }
+
+            if (req.query.status) {
+                query = {
+                    status: req.query.status
+                }
+            }
+
+            if (req.query.search) {
+                query.title = { $regex: new RegExp(req.query.search, "i") }
             }
 
             const result = await blogCollection.find(query).toArray();
