@@ -131,6 +131,30 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/searchUser', verifyToken, async (req, res) => {
+            let query = {};
+
+            if(req.query.donor) {
+                query.role = req.query.donor
+            }
+
+            if(req.query.email){
+                query.email = req.query.email
+            }
+            if(req.query.bloodType){
+                query.bloodType = req.query.bloodType
+            }
+            if(req.query.district){
+                query.district = req.query.district
+            }
+            if(req.query.upazila){
+                query.email = req.query.upazila
+            }
+
+            const result = await userCollection.find(query).toArray();
+            res.send(result);
+        })
+
         app.put('/users/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const user = req.body;
@@ -153,6 +177,25 @@ async function run() {
 
             const result = await userCollection.updateOne(query, updateDoc, options)
             res.send(result);
+        })
+
+        app.patch("/users/:email", async (req, res) => {
+            const user = req.body;
+            const email = req.params.email
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: {
+                    name: user.name,
+                    email: user?.email,
+                    district: user?.district,
+                    upazila: user?.upazila,
+                    bloodType: user?.bloodType,
+                    image: user?.image
+                }
+            }
+
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result)
         })
 
         app.patch("/blockUser/:id", verifyToken, async (req, res) => {
@@ -364,8 +407,8 @@ async function run() {
         app.get("/allStats", verifyToken, async (req, res) => {
             const users = await userCollection.estimatedDocumentCount();
             const requests = await requestCollection.estimatedDocumentCount();
-        
-            res.send({users, requests})
+
+            res.send({ users, requests })
         })
 
 
