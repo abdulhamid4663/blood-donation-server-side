@@ -361,6 +361,13 @@ async function run() {
             res.send(result);
         })
 
+        app.get("/allStats", verifyToken, async (req, res) => {
+            const users = await userCollection.estimatedDocumentCount();
+            const requests = await requestCollection.estimatedDocumentCount();
+        
+            res.send({users, requests})
+        })
+
 
 
         // Send a ping to confirm a successful connection
