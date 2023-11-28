@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser')
 const app = express();
 const port = process.env.PORT || 5000;
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 app.use(cors({
     origin: ['http://localhost:5173'],
@@ -50,6 +51,20 @@ async function run() {
         const userCollection = client.db('lifeFlowDB').collection('users');
         const requestCollection = client.db('lifeFlowDB').collection('requests');
         const blogCollection = client.db('lifeFlowDB').collection('blogs');
+        const paymentCollection = client.db('lifeFlowDB').collection('payments');
+
+        // verify the user is admin or not
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            const isAdmin = user?.role === "admin";
+            if (!isAdmin) {
+                return res.status(403).send({ message: 'Forbidden access', status: 403 })
+            }
+
+            next()
+        }
 
 
         // auth related api
@@ -101,7 +116,7 @@ async function run() {
         })
 
         // Users related api
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             let query = {};
 
             if (req.query.sort === 'blocked' || req.query.sort === 'active') {
@@ -134,20 +149,20 @@ async function run() {
         app.get('/searchUser', verifyToken, async (req, res) => {
             let query = {};
 
-            if(req.query.donor) {
+            if (req.query.donor) {
                 query.role = req.query.donor
             }
 
-            if(req.query.email){
+            if (req.query.email) {
                 query.email = req.query.email
             }
-            if(req.query.bloodType){
+            if (req.query.bloodType) {
                 query.bloodType = req.query.bloodType
             }
-            if(req.query.district){
+            if (req.query.district) {
                 query.district = req.query.district
             }
-            if(req.query.upazila){
+            if (req.query.upazila) {
                 query.email = req.query.upazila
             }
 
@@ -179,7 +194,7 @@ async function run() {
             res.send(result);
         })
 
-        app.patch("/users/:email", async (req, res) => {
+        app.patch("/users/:email", verifyToken, async (req, res) => {
             const user = req.body;
             const email = req.params.email
             const filter = { email: email };
@@ -198,7 +213,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch("/blockUser/:id", verifyToken, async (req, res) => {
+        app.patch("/blockUser/:id", verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -211,7 +226,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch("/activeUser/:id", verifyToken, async (req, res) => {
+        app.patch("/activeUser/:id", verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -224,7 +239,7 @@ async function run() {
             res.send(result)
         })
 
-        app.patch("/changeRole/:id", verifyToken, async (req, res) => {
+        app.patch("/changeRole/:id", verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const userRole = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -369,7 +384,7 @@ async function run() {
             res.send(result);
         })
 
-        app.patch('/blogs/:id', verifyToken, async (req, res) => {
+        app.patch('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const updateStatus = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -389,7 +404,8 @@ async function run() {
             } else {
                 const updatedDoc = {
                     $set: {
-                        status: updateStatus.status
+                        status: updateStatus.status,
+                        published_date: ''
                     }
                 }
                 const result = await blogCollection.updateOne(filter, updatedDoc);
@@ -397,7 +413,7 @@ async function run() {
             }
         })
 
-        app.delete(`/blogs/:id`, verifyToken, async (req, res) => {
+        app.delete(`/blogs/:id`, verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await blogCollection.deleteOne(query);
@@ -407,8 +423,46 @@ async function run() {
         app.get("/allStats", verifyToken, async (req, res) => {
             const users = await userCollection.estimatedDocumentCount();
             const requests = await requestCollection.estimatedDocumentCount();
+            const amounts = await paymentCollection.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalAmount: { $sum: { $toDouble: "$amount" } }
+                    }
+                }
+            ]).toArray()
+            console.log(amounts);
+            const totalAmount = amounts.length > 0 ? amounts[0]?.totalAmount : 0;
+            res.send({ users, requests, totalAmount })
+        })
 
-            res.send({ users, requests })
+        // payment intent related api
+        app.post('/create-payment-intent', async (req, res) => {
+            const { paymentAmount } = req.body;
+            const amount = parseInt(paymentAmount * 100);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: [
+                    'card'
+                ]
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        })
+
+        app.get('/payments', async (req, res) => {
+            const result = await paymentCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.post('/payments', async (req, res) => {
+            const paymentInfo = req.body;
+            const result = await paymentCollection.insertOne(paymentInfo)
+            res.send(result);
         })
 
 
