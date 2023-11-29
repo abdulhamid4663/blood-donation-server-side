@@ -152,10 +152,6 @@ async function run() {
             if (req.query.donor) {
                 query.role = req.query.donor
             }
-
-            if (req.query.email) {
-                query.email = req.query.email
-            }
             if (req.query.bloodType) {
                 query.bloodType = req.query.bloodType
             }
@@ -375,6 +371,27 @@ async function run() {
             }
 
             const result = await blogCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.get("/publishedBlogs", async (req, res) => {
+            let query = {status: "published"}
+
+            if (req.query.search) {
+                query.$or = [
+                    { title: { $regex: new RegExp(req.query.search, "i") } },
+                    { name: { $regex: new RegExp(req.query.search, "i") } }
+                ];
+            }
+
+            const result = await blogCollection.find(query).toArray();
+            res.send(result)
+        })
+
+        app.get('/blog/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await blogCollection.findOne(query);
             res.send(result);
         })
 
