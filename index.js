@@ -376,7 +376,7 @@ async function run() {
         })
 
         app.get("/publishedBlogs", async (req, res) => {
-            let query = {status: "published"}
+            let query = { status: "published" }
 
             if (req.query.search) {
                 query.$or = [
@@ -432,6 +432,20 @@ async function run() {
             }
         })
 
+        app.post('/blogs/:email', verifyToken, async (req, res) => {
+            const blog = req.body;
+            const email = req.params.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+
+            if(user?.role === 'admin' || user?.role === "volunteer") {
+                const result = await blogCollection.insertOne(blog);
+                return res.send(result);
+            } else {
+                return res.status(403).send({message: "unauthorized access"})
+            }
+        })
+
         app.put('/blogs/:id', async (req, res) => {
             const updatedBlog = req.body;
             const id = req.params.id;
@@ -471,7 +485,7 @@ async function run() {
                     }
                 }
             ]).toArray()
-            console.log(amounts);
+
             const totalAmount = amounts.length > 0 ? amounts[0]?.totalAmount : 0;
             res.send({ users, requests, totalAmount })
         })
