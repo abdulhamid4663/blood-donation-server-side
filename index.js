@@ -9,8 +9,8 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const nodemailer = require("nodemailer");
 
 app.use(cors({
-    origin: ['http://localhost:5173'],
-    // origin: ['https://ornate-narwhal-7a3a3b.netlify.app'],
+    // origin: ['http://localhost:5173'],
+    origin: ['https://ornate-narwhal-7a3a3b.netlify.app'],
     credentials: true,
 }));
 app.use(express.json());
