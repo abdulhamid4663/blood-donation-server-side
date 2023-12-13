@@ -6,14 +6,52 @@ const cookieParser = require('cookie-parser')
 const app = express();
 const port = process.env.PORT || 5000;
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const nodemailer = require("nodemailer");
 
 app.use(cors({
-    // origin: ['http://localhost:5173'],
-    origin: ['https://ornate-narwhal-7a3a3b.netlify.app'],
+    origin: ['http://localhost:5173'],
+    // origin: ['https://ornate-narwhal-7a3a3b.netlify.app'],
     credentials: true,
 }));
 app.use(express.json());
 app.use(cookieParser());
+
+app.post('/sendMessage', async (req, res) => {
+    const { from, name, to, message, phone } = req.body;
+
+    const transporter = nodemailer.createTransport({
+        host: process.env.STMP_HOST,
+        port: process.env.STMP_PORT,
+        secure: true,
+        auth: {
+            user: process.env.STMP_EMAIL,
+            pass: process.env.STMP_PASS,
+        },
+    });
+
+    async function main() {
+        const info = await transporter.sendMail({
+            from: from,
+            to: to,
+            subject: `${name}'s message from LifeFlow`, 
+            html: `
+                    <p>${message}</p>
+                    <br />
+                    <br />
+                    <b>${name}'s Email: ${from}</b>
+                    <br />
+                    <b>${name}'s Phone Number: ${phone}</b>
+            `,
+        });
+
+        console.log("Message sent: %s", info.messageId);
+    }
+
+    main().catch(console.error);
+    console.log(name, to, message, phone);
+    res.send({ success: true })
+})
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xgaxesu.mongodb.net/?retryWrites=true&w=majority`;
@@ -438,11 +476,11 @@ async function run() {
             const query = { email: email };
             const user = await userCollection.findOne(query);
 
-            if(user?.role === 'admin' || user?.role === "volunteer") {
+            if (user?.role === 'admin' || user?.role === "volunteer") {
                 const result = await blogCollection.insertOne(blog);
                 return res.send(result);
             } else {
-                return res.status(403).send({message: "unauthorized access"})
+                return res.status(403).send({ message: "unauthorized access" })
             }
         })
 
